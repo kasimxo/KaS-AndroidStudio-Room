@@ -5,7 +5,12 @@ import android.os.Bundle
 import android.util.Log
 import android.util.TypedValue
 import android.view.View
+import androidx.room.Room
 import com.andres.superhero.MainActivity.Companion.EXTRA_ID
+import com.andres.superhero.database.SuperheroDatabase
+import com.andres.superhero.database.dao.SuperheroDao
+import com.andres.superhero.database.entities.DetalleHeroEntity
+import com.andres.superhero.database.entities.ListadoHeroesEntity
 import com.andres.superhero.databinding.ActivityDetailSuperheroBinding
 import com.squareup.picasso.Picasso
 import kotlinx.coroutines.CoroutineScope
@@ -19,47 +24,57 @@ class DetailSuperheroActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityDetailSuperheroBinding
 
+    private lateinit var room: SuperheroDatabase
+    private lateinit var dao: SuperheroDao
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityDetailSuperheroBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        room = Room.databaseBuilder(this, SuperheroDatabase::class.java, "superheroes2").build()
+        dao = room.getHeroesDao()
+
         val id: String = intent.getStringExtra(EXTRA_ID).orEmpty()
-        getSuperheroInformation(id)
+        Log.i("Segunda", id)
+        getSuperheroInformation(id.toInt())
     }
 
-    private fun getSuperheroInformation(id: String) {
+    private fun getSuperheroInformation(id: Int) {
         CoroutineScope(Dispatchers.IO).launch {
-            val superheroDetail =
-                getRetrofit().create(ApiService::class.java).getSuperheroDetail()
-            if(superheroDetail.body() != null){
-                runOnUiThread {
-                    var heroes = superheroDetail.body()!!.heroes
-                     for (hero in heroes){
-                         Log.i("Hero detail", hero.biography.fullName)
-                     }
+            val superheroDetail = dao.selectHeroDetail(id)
+            val heroe = dao.selectHero(id)
+            Log.i("Heroe", heroe.name)
+            //Log.i("Heroe detail", superheroDetail.fullName)
+            if(superheroDetail != null){
 
-                    //createUI(superheroDetail.body()!!)
-                }
+                    createUI(superheroDetail!!, heroe)
+
             }
-
         }
     }
 
-    private fun createUI(superhero: SuperHeroDetailResponse) {
-        Picasso.get().load(superhero.image.url).into(binding.ivSuperhero)
-        binding.tvSuperheroName.text = superhero.biography.fullName
-        binding.tvSuperheroRealName.text = superhero.biography.fullName
-        binding.tvPublisher.text = superhero.biography.publisher
-        prepareStats(superhero.powerstats)
+    private fun createUI(superhero: DetalleHeroEntity, heroe: ListadoHeroesEntity) {
+        Log.i("heroe name", heroe.name)
+        Log.i("superhero", superhero.durability)
+
+        runOnUiThread {
+            Picasso.get().load(heroe.image).into(binding.ivSuperhero)
+            binding.tvSuperheroName.text = heroe.name
+            binding.tvSuperheroRealName.text = superhero.fullName
+            binding.tvPublisher.text = superhero.publisher
+            prepareStats(superhero)
+        }
+
+
     }
-    private fun prepareStats(powerstats: PowerStatsResponse) {
-        updateHeight(binding.viewIntelligence, powerstats.intelligence)
-        updateHeight(binding.viewStrength, powerstats.strength)
-        updateHeight(binding.viewSpeed, powerstats.speed)
-        updateHeight(binding.viewDurability, powerstats.durability)
-        updateHeight(binding.viewPower, powerstats.power)
-        updateHeight(binding.viewCombat, powerstats.combat)
+    private fun prepareStats(superhero: DetalleHeroEntity) {
+        updateHeight(binding.viewIntelligence, superhero.intelligence)
+        updateHeight(binding.viewStrength, superhero.strength)
+        updateHeight(binding.viewSpeed, superhero.speed)
+        updateHeight(binding.viewDurability, superhero.durability)
+        updateHeight(binding.viewPower, superhero.power)
+        updateHeight(binding.viewCombat, superhero.combat)
     }
 
     private fun updateHeight(view: View, stat:String){
@@ -69,7 +84,6 @@ class DetailSuperheroActivity : AppCompatActivity() {
         } else {
             params.height = pxToDp(0.toFloat())
         }
-
         view.layoutParams = params
     }
 

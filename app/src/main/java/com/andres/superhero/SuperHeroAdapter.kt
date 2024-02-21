@@ -4,16 +4,17 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.andres.superhero.database.entities.ListadoHeroesEntity
 
-class SuperheroAdapter( var superheroList: List<SuperHeroItemResponse> = emptyList(),
+class SuperheroAdapter( var superheroList: List<ListadoHeroesEntity> = emptyList(),
                         private val navigateToDetailActivity: (String) -> Unit) : RecyclerView.Adapter<SuperheroViewHolder>() {
 
-    fun updateList(list: List<SuperHeroItemResponse>) {
+    fun updateList(list: List<ListadoHeroesEntity>) {
         superheroList = list
         notifyDataSetChanged()
 
         for (s in list){
-            Log.d("Lista", s.image.url)
+            Log.d("Lista", s.image)
         }
 
 

@@ -10,7 +10,9 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.room.Room
 import com.andres.superhero.database.SuperheroDatabase
 import com.andres.superhero.database.dao.SuperheroDao
+import com.andres.superhero.database.entities.ListadoHeroesEntity
 import com.andres.superhero.database.entities.toDatabase
+//import com.andres.superhero.database.entities.toDatabase
 import com.andres.superhero.databinding.ActivityMainBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,14 +37,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        retrofit = getRetrofit()
+
         //Esto es para poder usar el binding
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
 
-        retrofit = getRetrofit()
-
-        room = Room.databaseBuilder(this, SuperheroDatabase::class.java, "superheroes").build()
+        room = Room.databaseBuilder(this, SuperheroDatabase::class.java, "superheroes2").build()
         dao = room.getHeroesDao()
 
         cargarSuperheroes()
@@ -57,11 +60,10 @@ class MainActivity : AppCompatActivity() {
     private fun initUI() {
         binding.searchbar.setOnQueryTextListener(object: SearchView.OnQueryTextListener{
             override fun onQueryTextSubmit(query: String?): Boolean {
-                //Añadimos el orEmpty para que si está nulo no haga na
-                //searchByName(query.orEmpty())
+                //Añadimos el orEmpty para que si está nulo no haga nada
+                searchByName(query.orEmpty())
                 return false
             }
-
             override fun onQueryTextChange(newText: String?) = false
         })
         adapter = SuperheroAdapter { superheroId ->  navigateToDetail(superheroId) }
@@ -69,6 +71,28 @@ class MainActivity : AppCompatActivity() {
         binding.rvHeroes.layoutManager = LinearLayoutManager(this)
         binding.rvHeroes.adapter = adapter
     }
+
+
+    private fun searchByName(query: String) {
+
+        binding.progressBar.isVisible = true
+        CoroutineScope(Dispatchers.IO).launch {
+            val myResponse: List<ListadoHeroesEntity> =
+                dao.selectAllHeroes("%$query%")
+            if (myResponse.size != null) {
+                    runOnUiThread {
+                        adapter.updateList(myResponse)
+                        binding.progressBar.isVisible = false
+                    }
+                } else {
+                    Log.i("Resultado", "No se encuentran resultados")
+                    binding.progressBar.isVisible = false
+                    binding.resultados.text = "No se han encontrado resultados"
+                }
+
+            }
+        }
+
 
 
 
@@ -84,13 +108,13 @@ class MainActivity : AppCompatActivity() {
                 val response: SuperHeroDataResponse? = myResponse.body()
                 if (response != null && response.response == "success") {
                     Log.i("Cuerpo de la consulta", response.toString())
-                    //Primero eliminamo todos los datos
+                    //Primero eliminamos todos los datos
                     dao.deleteAllHeroes()
 
                     //Aqui insertamos response.superheroes
                     dao.insertAllHeroes(response.superheroes.map { it.toDatabase()})
+                    Log.i("insertado", "success")
                     runOnUiThread {
-                        //adapter.updateList(response.superheroes)
                         binding.progressBar.isVisible = false
                     }
                 } else {
@@ -112,6 +136,12 @@ class MainActivity : AppCompatActivity() {
                 var heroes = superheroDetail.body()!!.heroes
                 dao.deleteAllHeroesDetail()
                 dao.insertHeroDetail(heroes.map { it.toDatabase() })
+
+                for(cadena in dao.debugHeroDetail()){
+                    Log.i("DEBUG HERO DETAIL", cadena.fullName)
+                }
+
+
                 runOnUiThread {
                     for (hero in heroes){
                         Log.i("Hero detail", hero.biography.fullName)
@@ -124,6 +154,7 @@ class MainActivity : AppCompatActivity() {
     private fun navigateToDetail(id: String) {
         val intent = Intent(this, DetailSuperheroActivity::class.java)
         intent.putExtra(EXTRA_ID, id)
+        Log.i("Cambiamos id", id)
         startActivity(intent)
     }
 
